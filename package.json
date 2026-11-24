@@ -1,0 +1,12 @@
+{
+  "name": "jumanji-the-last-decision",
+  "version": "1.0.0",
+  "description": "Jumanji: The Last Decision - 3D RPG Game",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}
