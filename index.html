@@ -3,28 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Jumanji: The Last Decision // 3D RPG Adventure</title>
-  <meta name="description" content="A 3D RPG adventure in Jumanji with 6 unique playable characters, ancient ruins, puzzles, guardian predator AI, and multiple climactic endings." />
+  <title>JUMANJI: The Last Decision // 3D Adventure RPG</title>
+  <meta name="description" content="A lush 5-level 3D Jumanji adventure RPG with movie-inspired holographic avatar cards, adaptive tribal audio, radar minimap, and multiple endings." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
 
-    <!-- 3D WebGL Canvas -->
+    <!-- 3D WebGL Viewport -->
     <canvas id="game-canvas"></canvas>
 
-    <!-- Cinematic Black Letterbox Bars -->
+    <!-- Visceral Damage / Danger Vignette -->
+    <div id="damage-vignette" class="damage-vignette"></div>
+
+    <!-- Cinematic Letterbox Bars -->
     <div id="cinematic-bars" class="cinematic-bars">
       <div class="cinematic-bar-top"></div>
       <div class="cinematic-bar-bottom"></div>
     </div>
 
-    <!-- 1. INTRO VIDEO SCREEN (Uses reference video jumanji_intro.mp4) -->
+    <!-- 1. INTRO VIDEO SCREEN -->
     <section id="screen-intro" class="screen screen--active">
       <div class="video-container">
         <video id="intro-video" playsinline preload="auto">
           <source src="jumanji_intro.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
         </video>
         <div class="video-controls">
           <button id="btn-intro-mute" class="btn btn--skip" type="button">🔊 UNMUTE</button>
@@ -35,44 +40,43 @@
 
     <!-- 2. TITLE SCREEN -->
     <section id="screen-title" class="screen">
-      <header class="title-header">
-        <div class="title-tagline">An Interactive 3D RPG Adventure</div>
-        <h1 class="title-logo">JUMANJI</h1>
-        <h2 class="title-subtitle">THE LAST DECISION</h2>
-      </header>
+      <div class="title-ornate-frame">
+        <header class="title-header">
+          <div class="title-tagline">✦ THE DRUMS ARE CALLING ✦</div>
+          <h1 class="title-logo">JUMANJI</h1>
+          <h2 class="title-subtitle">WELCOME TO THE JUNGLE &bull; THE LAST DECISION</h2>
+        </header>
 
-      <div class="title-synopsis">
-        <p>
-          The sacred <b>Falcon Jewel of the Sun</b> has begun to warp the boundaries between Jumanji and our world. 
-          The ancient temple guardian has awakened, and dark mystical storms threaten both dimensions. 
-          Step into the avatar of one of 6 legendary heroes, brave the Sun Temple ruins, solve the ancient rune trials, 
-          and make <b>The Last Decision</b> that will seal the fate of all reality.
-        </p>
-      </div>
+        <div class="title-synopsis">
+          <p>
+            A cursed emerald cartridge has pulled you into the untamed heart of <b>Jumanji</b>.
+            Across <b>5 perilous realms</b> — from emerald canopies and trapped temples to volcanic fortresses —
+            you must master your avatar's strengths, guard your <b>three wrist-tattoo lives</b>, defeat the
+            Shadow Colossus, and claim the <b>Falcon Jewel</b> to escape.
+          </p>
+        </div>
 
-      <div class="title-actions">
-        <button id="btn-audio-toggle" class="btn btn--secondary" type="button">🔊 AUDIO: ON</button>
-        <button id="btn-to-char-select" class="btn btn--primary">CHOOSE YOUR AVATAR</button>
+        <div class="title-actions">
+          <button id="btn-audio-toggle" class="btn btn--secondary" type="button">🔊 AMBIENCE: ON</button>
+          <button id="btn-to-char-select" class="btn btn--primary" type="button">ENTER THE GAME</button>
+        </div>
       </div>
     </section>
 
-    <!-- 3. CHARACTER SELECTION SCREEN (6 Characters from Reference Poster) -->
+    <!-- 3. CHARACTER & CAMPAIGN SELECTION -->
     <section id="screen-select" class="screen">
       <div class="select-header">
-        <h2 class="select-title">SELECT YOUR AVATAR</h2>
-        <p class="select-subtitle">Each hero possesses distinct strengths, weaknesses, special abilities, and story endings</p>
+        <h2 class="select-title">CHOOSE YOUR AVATAR</h2>
+        <p class="select-subtitle">Tap into your hero's strengths, weaknesses, and destiny across 5 connected levels</p>
       </div>
 
-      <!-- 6 Character Cards Grid -->
-      <div id="chars-grid" class="chars-grid">
-        <!-- Dynamically rendered or pre-populated via JS -->
-      </div>
+      <div id="chars-grid" class="chars-grid"></div>
 
-      <!-- Selected Character Detail Dossier -->
+      <!-- Movie-Inspired Glowing Emerald Dossier -->
       <div id="char-details-panel" class="char-details-panel">
         <div class="char-bio-col">
           <h3 id="detail-name" class="char-bio-name">Dr. Smolder Bravestone</h3>
-          <div id="detail-title" class="char-bio-title">Fearless Archaeologist & Leader</div>
+          <div id="detail-title" class="char-bio-title">Fearless Archaeologist &amp; Leader</div>
           <p id="detail-desc" class="char-bio-desc"></p>
           <div class="char-ability-box">
             <div class="ability-header">
@@ -124,22 +128,24 @@
       </div>
 
       <div class="select-confirm-bar">
-        <button id="btn-back-to-title" class="btn btn--secondary" type="button">Back</button>
-        <button id="btn-confirm-avatar" class="btn btn--primary" type="button">ENTER JUMANJI</button>
+        <div id="level-select-bar" class="level-select-bar"></div>
+        <div class="select-btn-row">
+          <button id="btn-back-to-title" class="btn btn--secondary" type="button">Back</button>
+          <button id="btn-confirm-avatar" class="btn btn--primary" type="button">BEGIN EXPEDITION</button>
+        </div>
       </div>
     </section>
 
     <!-- 4. IN-GAME HUD -->
     <div id="game-hud" style="display: none;">
-      <!-- Top Bar: Avatar, Health, Stamina, Tattoos, Quest Objective, Glyphs -->
       <div class="hud-top-bar">
-        <div class="hud-player-status">
+        <!-- Player Status & Wrist Tattoos -->
+        <div class="hud-player-status" id="hud-avatar-card-btn" title="Press [TAB] to view Avatar Strengths & Weaknesses">
           <div id="hud-avatar" class="hud-avatar-thumb"></div>
           <div class="hud-bars-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="hud-name-row">
               <span id="hud-char-name" class="hud-player-name">Dr. Bravestone</span>
-              <!-- Jumanji 3 Lives Wrist Tattoos -->
-              <div class="hud-tattoos" title="Jumanji Lives">
+              <div class="hud-tattoos" title="3 Jumanji Lives">
                 <div id="tattoo-1" class="tattoo-bar"></div>
                 <div id="tattoo-2" class="tattoo-bar"></div>
                 <div id="tattoo-3" class="tattoo-bar"></div>
@@ -148,49 +154,138 @@
             <div class="hud-bar-row">
               <span class="hud-bar-label">HP</span>
               <div class="hud-track"><div id="hud-hp-bar" class="hud-fill--health"></div></div>
-              <span id="hud-hp-val" style="font-size: 0.75rem; font-weight: 700; color: #22c55e;">120</span>
+              <span id="hud-hp-val" class="hud-hp-num">120</span>
             </div>
             <div class="hud-bar-row">
               <span class="hud-bar-label">STAM</span>
               <div class="hud-track"><div id="hud-stam-bar" class="hud-fill--stamina"></div></div>
+              <span class="hud-tab-hint">[TAB] Card</span>
             </div>
           </div>
         </div>
 
-        <!-- Quest Objective Banner -->
-        <div class="hud-quest-banner">
-          <div class="quest-label">Active Mission</div>
-          <div id="hud-objective-text" class="quest-text">Speak with Nigel Billingsley at the Temple Gate</div>
+        <!-- Active Mission & Axes.io XP Bar -->
+        <div class="hud-center-stack">
+          <div class="axes-xp-bar" title="Arena XP Level">
+            <div id="hud-xp-fill" class="axes-xp-fill"></div>
+            <span id="hud-xp-level" class="axes-xp-text">Level 1</span>
+          </div>
+          <div class="hud-quest-banner">
+            <div id="hud-level-badge" class="quest-label">Level 1 / 5 &bull; Enter the Jungle</div>
+            <div id="hud-objective-text" class="quest-text">Speak with Nigel Billingsley</div>
+          </div>
         </div>
 
-        <!-- Top Right Collectibles & Audio -->
-        <div class="hud-right-panel">
-          <div class="hud-collectibles">
-            <span>🦅 Glyphs:</span>
-            <span id="hud-glyph-count">0 / 3</span>
+        <!-- Score, Coins, Leaderboard & Controls -->
+        <div class="hud-right-stack">
+          <div class="hud-right-panel">
+            <div id="hud-combo" class="hud-combo" style="display: none;">x2 COMBO!</div>
+            <div class="hud-collectibles">
+              <span>🏆 <b id="hud-score">0</b></span>
+              <span class="hud-sep">|</span>
+              <span>🪙 <b id="hud-coins">0</b></span>
+            </div>
+            <button id="btn-hud-audio" class="hud-btn" type="button" title="Toggle Sound">🔊</button>
+            <button id="btn-hud-restart" class="hud-btn" type="button" title="Return to Menu">🧭 Menu</button>
           </div>
-          <button id="btn-hud-audio" class="hud-btn" type="button">🔊</button>
-          <button id="btn-hud-restart" class="hud-btn" type="button">🔄 Restart</button>
+          <div id="hud-leaderboard" class="axes-leaderboard"></div>
         </div>
       </div>
 
-      <!-- Action Toast Notification -->
+      <!-- Kill Feed -->
+      <div id="hud-killfeed" class="axes-killfeed"></div>
+
+      <!-- Boss Health Bar (Level 5) -->
+      <div id="hud-boss-bar" class="hud-boss-bar" style="display: none;">
+        <div class="boss-name">💀 THE SHADOW COLOSSUS</div>
+        <div class="boss-track"><div id="hud-boss-fill" class="boss-fill"></div></div>
+      </div>
+
+      <!-- Level Story Banner -->
+      <div id="level-story-banner" class="level-story-banner">
+        <h3 id="story-level-title">LEVEL 1: ENTER THE JUNGLE</h3>
+        <p id="story-level-desc"></p>
+      </div>
+
+      <!-- Toast & Contextual Interact Pill -->
       <div id="hud-toast" class="hud-toast"></div>
+      <div id="hud-interact-pill" class="hud-interact-pill" style="display: none;">
+        <span class="pill-key">[E]</span> <span id="hud-interact-label">Interact</span>
+      </div>
 
-      <!-- Bottom Bar: Controls, Ability Slot -->
+      <!-- Floating Score/Damage Layer -->
+      <div id="floating-popups" class="floating-popups"></div>
+
+      <!-- Bottom Bar: Virtual Joystick, Radar Minimap, Inventory, Throw Axe & Ability -->
       <div class="hud-bottom-bar">
-        <div class="hud-controls-guide">
-          <span><b>[WASD]</b> Move &nbsp;|&nbsp; <b>[Shift]</b> Sprint &nbsp;|&nbsp; <b>[Space]</b> Jump</span>
-          <span><b>[E]</b> Interact / Inspect / Talk &nbsp;|&nbsp; <b>[Q]</b> Special Ability</span>
-          <span><b>[Mouse Drag]</b> Orbit Camera &nbsp;|&nbsp; <b>[Scroll]</b> Zoom</span>
+        <div class="hud-left-cluster">
+          <div id="virtual-joystick" class="virtual-joystick" title="Drag to Move (or use WASD)">
+            <div id="joystick-knob" class="joystick-knob"></div>
+          </div>
+          <div class="minimap-wrap" title="Emerald Radar">
+            <canvas id="minimap-canvas" width="112" height="112"></canvas>
+            <div class="minimap-n">N</div>
+          </div>
+          <div class="hud-controls-guide">
+            <span><b>[WASD / Arrows]</b> Move &amp; Aim &bull; <b>[Space / Click]</b> Throw Axe</span>
+            <span><b>[Q]</b> Power &bull; <b>[E]</b> Interact &bull; <b>[1-3]</b> Items</span>
+          </div>
         </div>
 
-        <!-- Special Ability Slot -->
-        <div id="hud-ability-btn" class="hud-ability-slot" title="Click or Press [Q] to activate">
-          <div class="ability-slot-key">[Q]</div>
-          <div id="hud-ability-name" class="ability-slot-name">Smash</div>
-          <div id="hud-ability-cd" class="ability-cooldown-overlay">0</div>
+        <div class="hud-inventory">
+          <button id="inv-berry" class="inv-slot" title="Press [1] - Heal +40 HP">
+            <span class="inv-key">[1]</span> 🍓 <span id="inv-berry-count">1</span>
+          </button>
+          <button id="inv-speed" class="inv-slot" title="Press [2] - +45% Speed for 8s">
+            <span class="inv-key">[2]</span> ⚡ <span id="inv-speed-count">1</span>
+          </button>
+          <button id="inv-shield" class="inv-slot" title="Press [3] - Invulnerable for 8s">
+            <span class="inv-key">[3]</span> 🛡️ <span id="inv-shield-count">0</span>
+          </button>
+          <div class="inv-slot inv-slot--key" title="Golden Keys">
+            🔑 <span id="inv-key-count">0</span>
+          </div>
         </div>
+
+        <div class="hud-action-slots">
+          <div id="hud-attack-btn" class="hud-ability-slot hud-ability-slot--attack" title="Click or Press [Space] to Throw Axe">
+            <div class="ability-slot-key">[SPACE]</div>
+            <div class="ability-slot-name" style="font-size: 1.5rem;">🪓</div>
+          </div>
+          <div id="hud-ability-btn" class="hud-ability-slot" title="Click or Press [Q] for Special Power">
+            <div class="ability-slot-key">[Q]</div>
+            <div id="hud-ability-name" class="ability-slot-name">Smash</div>
+            <div id="hud-ability-cd" class="ability-cooldown-overlay">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AXES.IO LEVEL-UP PERK PICKER MODAL -->
+    <div id="perk-modal" class="level-complete-modal" style="max-width: 780px; z-index: 47;">
+      <div class="title-tagline">✦ LEVEL UP! ✦</div>
+      <h2 class="decision-title" style="font-size: 1.8rem;">CHOOSE YOUR UPGRADE</h2>
+      <div id="perk-cards" class="decision-cards" style="margin-top: 16px;"></div>
+    </div>
+
+    <!-- HOLOGRAPHIC JUMANJI CHEST CARD MODAL ([TAB]) -->
+    <div id="chest-card-modal" class="chest-card-modal" style="display: none;">
+      <div class="holo-card">
+        <div class="holo-header">
+          <span class="holo-badge">JUMANJI AVATAR DOSSIER</span>
+          <h3 id="holo-name">Dr. Smolder Bravestone</h3>
+        </div>
+        <div class="holo-columns">
+          <div>
+            <h4 class="holo-sub holo-sub--str">STRENGTHS</h4>
+            <ul id="holo-strengths" class="holo-list"></ul>
+          </div>
+          <div>
+            <h4 class="holo-sub holo-sub--weak">WEAKNESSES</h4>
+            <ul id="holo-weaknesses" class="holo-list"></ul>
+          </div>
+        </div>
+        <p class="holo-tip">Press <b>[TAB]</b> or click anywhere to close</p>
       </div>
     </div>
 
@@ -206,49 +301,55 @@
       </div>
     </div>
 
-    <!-- 6. THE LAST DECISION MODAL (Altar Climax) -->
+    <!-- LEVEL COMPLETE MODAL -->
+    <div id="level-complete-modal" class="level-complete-modal">
+      <div class="title-tagline">✦ REALM CONQUERED ✦</div>
+      <h2 id="lc-title" class="decision-title">LEVEL COMPLETE!</h2>
+      <p id="lc-subtitle" class="lc-sub"></p>
+      <div class="ending-stats" style="margin-bottom: 24px;">
+        <div class="ending-stat-item">Score: <b id="lc-score">0</b></div>
+        <div class="ending-stat-item">Coins: <b id="lc-coins">0</b></div>
+        <div class="ending-stat-item">Rank: <b id="lc-rank" style="color: #fde047;">S</b></div>
+      </div>
+      <button id="btn-next-level" class="btn btn--primary" type="button">CONTINUE EXPEDITION ⏩</button>
+    </div>
+
+    <!-- 6. THE LAST DECISION MODAL -->
     <div id="decision-modal">
       <div class="decision-header">
+        <div class="title-tagline">✦ THE FALCON JEWEL AWAKENS ✦</div>
         <h2 class="decision-title">THE LAST DECISION</h2>
-        <p class="decision-subtitle">The Falcon Jewel's cosmic power is within your grasp. How will you resolve the fate of Jumanji?</p>
+        <p class="decision-subtitle">Speak the name of Jumanji and choose the fate of both worlds.</p>
       </div>
 
       <div class="decision-cards">
-        <!-- Ending 1: Guardian's Oath -->
         <div class="decision-card" data-choice="guardian">
           <div class="decision-card-icon">🛡️</div>
           <h3 class="decision-card-title">The Guardian's Oath</h3>
-          <p class="decision-card-desc">
-            Return the Falcon Jewel to the mountain cradle, sealing Jumanji's magic forever and protecting both worlds from destruction.
-          </p>
-          <button class="btn btn--secondary" type="button">RESTORE & PROTECT</button>
+          <p class="decision-card-desc">Return the Falcon Jewel to the mountain roost, sealing the curse forever and returning home safely.</p>
+          <button class="btn btn--secondary" type="button">RESTORE &amp; PROTECT</button>
         </div>
 
-        <!-- Ending 2: Conqueror's Ascension -->
         <div class="decision-card" data-choice="conquer">
           <div class="decision-card-icon">👑</div>
           <h3 class="decision-card-title">The Conqueror's Ascension</h3>
-          <p class="decision-card-desc">
-            Harness the Jewel's primordial wild magic into your own soul, becoming the absolute sovereign and ruler of Jumanji's untamed realm.
-          </p>
+          <p class="decision-card-desc">Absorb the Jewel's primordial wild magic and rule Jumanji as an immortal sovereign.</p>
           <button class="btn btn--secondary" type="button">CLAIM THE POWER</button>
         </div>
 
-        <!-- Ending 3: World Melder -->
         <div class="decision-card" data-choice="melder">
           <div class="decision-card-icon">⚡</div>
           <h3 class="decision-card-title">The World Melder</h3>
-          <p class="decision-card-desc">
-            Shatter the dimensional boundary between game and reality, freeing every trapped avatar and ushering the real world into an age of adventure.
-          </p>
+          <p class="decision-card-desc">Shatter the boundary between game and reality, freeing every trapped soul into a new dawn.</p>
           <button class="btn btn--secondary" type="button">SHATTER THE BOUNDARY</button>
         </div>
       </div>
     </div>
 
-    <!-- 7. ENDING & EPILOGUE SCREEN -->
+    <!-- 7. ENDING SCREEN -->
     <section id="screen-ending" class="screen">
       <div class="ending-box">
+        <div class="title-tagline">✦ JUMANJI CONQUERED ✦</div>
         <h2 id="ending-title" class="ending-title">THE ETERNAL GUARDIAN</h2>
         <h3 id="ending-subtitle" class="ending-subtitle">Dr. Bravestone Restores Jumanji</h3>
         <div id="ending-avatar" class="ending-avatar"></div>
@@ -257,9 +358,9 @@
 
         <div class="ending-stats">
           <div class="ending-stat-item">Avatar: <b id="stat-end-avatar">Dr. Bravestone</b></div>
-          <div class="ending-stat-item">Glyphs: <b id="stat-end-glyphs">3 / 3</b></div>
+          <div class="ending-stat-item">Score: <b id="stat-end-score">0</b></div>
+          <div class="ending-stat-item">Coins: <b id="stat-end-coins">0</b></div>
           <div class="ending-stat-item">Lives: <b id="stat-end-lives">3 / 3</b></div>
-          <div class="ending-stat-item">Guardian: <b id="stat-end-guardian">Pacified</b></div>
         </div>
 
         <button id="btn-ending-replay" class="btn btn--primary" type="button">PLAY AGAIN // CHOOSE ANOTHER HERO</button>
@@ -267,10 +368,10 @@
     </section>
 
     <!-- 8. GAME OVER SCREEN -->
-    <section id="screen-gameover" class="screen" style="background: rgba(0,0,0,0.95); flex-direction: column; justify-content: center; align-items: center; z-index: 55;">
-      <h2 style="font-size: 3.5rem; color: #ef4444; font-weight: 900; margin-bottom: 12px; letter-spacing: 4px;">GAME OVER</h2>
-      <p style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 24px;">All 3 lives were lost. Jumanji has consumed your avatar!</p>
-      <button id="btn-gameover-restart" class="btn btn--primary" type="button">RESTART ADVENTURE</button>
+    <section id="screen-gameover" class="screen screen--gameover">
+      <h2 class="gameover-title">GAME OVER</h2>
+      <p class="gameover-desc">All three wrist tattoos have faded. Jumanji has claimed your avatar.</p>
+      <button id="btn-gameover-restart" class="btn btn--primary" type="button">TRY AGAIN</button>
     </section>
 
   </div>
