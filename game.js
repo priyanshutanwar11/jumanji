@@ -112,7 +112,10 @@ export class JumanjiGame {
     this.waterZones = [];
 
     // Camera & Juice
-    this.cameraMode = 'FOLLOW';
+    this.cameraMode = 'FPS';
+    this.fpsYaw = 0;
+    this.fpsPitch = -0.05;
+    this.fpsWeaponGroup = null;
     this.cameraShake = 0;
     this.combo = 1;
     this.comboTimer = 0;
@@ -157,8 +160,9 @@ export class JumanjiGame {
     this.scene.background = new THREE.Color(0x5288d8);
     this.scene.fog = new THREE.FogExp2(0x5288d8, 0.009);
 
-    this.camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 300);
-    this.camera.position.set(0, 14, 28);
+    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.08, 300);
+    this.camera.position.set(0, 1.7, 18);
+    this.scene.add(this.camera);
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -198,15 +202,6 @@ export class JumanjiGame {
     this.shared.shieldMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0x6b21a8 });
     this.shared.shadowGeo = new THREE.CircleGeometry(0.65, 12);
     this.shared.shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32 });
-
-    // Ground Aim Reticle
-    this.aimReticle = new THREE.Mesh(
-      new THREE.RingGeometry(0.45, 0.65, 16),
-      new THREE.MeshBasicMaterial({ color: 0xffe58f, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
-    );
-    this.aimReticle.rotation.x = -Math.PI / 2;
-    this.aimReticle.position.y = 0.22;
-    this.scene.add(this.aimReticle);
   }
 
   setupInputs() {
@@ -228,19 +223,59 @@ export class JumanjiGame {
 
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
-    this.canvas.addEventListener('mousemove', (e) => {
-      this.mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      this.updateMouseAim();
+    let lastMouseX = null;
+    let lastMouseY = null;
+    window.addEventListener('mousemove', (e) => {
+      if (this.state !== 'PLAYING') {
+        lastMouseX = null;
+        lastMouseY = null;
+        return;
+      }
+      let dx = 0, dy = 0;
+      if (document.pointerLockElement === this.canvas) {
+        dx = e.movementX || 0;
+        dy = e.movementY || 0;
+      } else {
+        if (lastMouseX !== null) {
+          dx = Math.max(-60, Math.min(60, e.clientX - lastMouseX));
+          dy = Math.max(-60, Math.min(60, e.clientY - lastMouseY));
+        }
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+      }
+      this.fpsYaw -= dx * 0.0032;
+      this.fpsPitch = Math.max(-1.05, Math.min(1.05, this.fpsPitch - dy * 0.0028));
     });
 
     this.canvas.addEventListener('mousedown', (e) => {
       soundEngine.resume();
       if (e.button === 0 && this.state === 'PLAYING') {
-        this.updateMouseAim();
+        if (document.pointerLockElement !== this.canvas && this.canvas.requestPointerLock) {
+          try { this.canvas.requestPointerLock(); } catch (err) {}
+        }
         this.throwAxe();
       }
     });
+
+    // Touch-swipe camera look on canvas
+    let touchLookX = null, touchLookY = null;
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchLookX = e.touches[0].clientX;
+        touchLookY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (this.state === 'PLAYING' && e.touches.length === 1 && touchLookX !== null) {
+        const dx = e.touches[0].clientX - touchLookX;
+        const dy = e.touches[0].clientY - touchLookY;
+        this.fpsYaw -= dx * 0.0045;
+        this.fpsPitch = Math.max(-1.05, Math.min(1.05, this.fpsPitch - dy * 0.0038));
+        touchLookX = e.touches[0].clientX;
+        touchLookY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    this.canvas.addEventListener('touchend', () => { touchLookX = null; touchLookY = null; });
   }
 
   updateMouseAim() {
@@ -1242,7 +1277,15 @@ export class JumanjiGame {
     this.playerMesh = group;
     this.playerJoints = joints;
     this.playerMesh.position.copy(this.checkpointPos);
+    this.playerMesh.visible = false; // Hidden in First-Person Shooter view
     this.scene.add(this.playerMesh);
+
+    // Build First-Person Held Weapon Viewmodel attached to Camera
+    if (this.fpsWeaponGroup) this.camera.remove(this.fpsWeaponGroup);
+    this.fpsWeaponGroup = this.buildAxeMesh(new THREE.Color(this.charData.themeColor).getHex());
+    this.fpsWeaponGroup.position.set(0.38, -0.34, -0.58);
+    this.fpsWeaponGroup.rotation.set(0.25, -0.35, 0.15);
+    this.camera.add(this.fpsWeaponGroup);
   }
 
   spawnBoss(x, y, z) {
@@ -1318,16 +1361,17 @@ export class JumanjiGame {
     this.throwAnimTimer = 0.25;
     soundEngine.playSfx('throw');
 
-    // Auto-lock onto very close enemy if aim is neutral
-    const pPos = this.playerMesh.position;
-    const dir = this.aimDir.clone().normalize();
-    this.playerMesh.rotation.y = Math.atan2(dir.x, dir.z);
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    dir.normalize();
+    const spawnOrigin = this.camera.position.clone().addScaledVector(dir, 0.7);
+    spawnOrigin.y -= 1.15; // aligns with spawnProjectile +1.25 offset
 
     const count = this.perks.has('double') ? 2 : 1;
     for (let i = 0; i < count; i++) {
-      const spread = count === 2 ? (i === 0 ? -0.14 : 0.14) : 0;
+      const spread = count === 2 ? (i === 0 ? -0.1 : 0.1) : 0;
       const d = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spread);
-      this.spawnProjectile(pPos, d, 'player', this.charData.themeColor, this.perks.has('fire'));
+      this.spawnProjectile(spawnOrigin, d, 'player', this.charData.themeColor, this.perks.has('fire'));
     }
   }
 
@@ -1460,6 +1504,7 @@ export class JumanjiGame {
     soundEngine.playSfx('hit');
     this.cameraShake = Math.max(this.cameraShake, 0.14);
     if (this.onFloatingPopup) this.onFloatingPopup(`-${dmg}`, '#ff6b6b');
+    if (this.onHitmarker) this.onHitmarker();
 
     if (e.hp <= 0) {
       e.state = 'DEAD';
@@ -1800,22 +1845,26 @@ export class JumanjiGame {
       });
     }
 
-    // Direct Screen-Aligned Movement (WASD + Virtual Joystick)
-    let moveX = this.joystickVec.x;
-    let moveZ = this.joystickVec.y;
-    if (this.keys['KeyW'] || this.keys['ArrowUp']) moveZ -= 1;
-    if (this.keys['KeyS'] || this.keys['ArrowDown']) moveZ += 1;
-    if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
-    if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
+    // First-Person Movement relative to Camera Yaw (WASD / Arrows / Virtual Joystick)
+    let inputX = this.joystickVec.x;
+    let inputZ = this.joystickVec.y;
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) inputZ -= 1;
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) inputZ += 1;
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) inputX -= 1;
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) inputX += 1;
 
-    const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+    const len = Math.sqrt(inputX * inputX + inputZ * inputZ);
     this.isMoving = len > 0.05;
 
     if (this.isMoving) {
-      moveX /= Math.max(1, len);
-      moveZ /= Math.max(1, len);
-      // Sync aim direction with WASD / Arrow / Joystick direction!
-      this.aimDir.set(moveX, 0, moveZ).normalize();
+      inputX /= Math.max(1, len);
+      inputZ /= Math.max(1, len);
+
+      const sinY = Math.sin(this.fpsYaw);
+      const cosY = Math.cos(this.fpsYaw);
+      const forwardInput = -inputZ; // W = +1
+      const moveX = -sinY * forwardInput + cosY * inputX;
+      const moveZ = -cosY * forwardInput - sinY * inputX;
 
       const boost = (this.speedBoostTimer > 0 ? 1.4 : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0) * (this.dodgeTimer > 0 ? 2.2 : 1.0);
       const speed = this.charData.stats.speed * (this.isSprinting ? 1.45 : 1.0) * boost;
@@ -1830,19 +1879,9 @@ export class JumanjiGame {
         this.playerMesh.position.z = nz;
       }
 
-      if (this.throwAnimTimer <= 0) {
-        const targetAngle = Math.atan2(moveX, moveZ);
-        this.playerMesh.rotation.y = THREE.MathUtils.lerp(this.playerMesh.rotation.y, targetAngle, 14 * delta);
-      }
       this.walkCycle += delta * (this.isSprinting ? 15 : 10);
     } else {
       this.walkCycle = 0;
-    }
-
-    // Aim Reticle Position
-    if (this.aimReticle) {
-      this.aimReticle.position.x = this.playerMesh.position.x + this.aimDir.x * 3.5;
-      this.aimReticle.position.z = this.playerMesh.position.z + this.aimDir.z * 3.5;
     }
 
     // Ground & Temple Stairs Height
@@ -2249,24 +2288,32 @@ export class JumanjiGame {
     }
 
     if (!this.playerMesh) return;
-    const target = this.playerMesh.position.clone();
-    target.y += 1.2;
-    this.cameraTarget.lerp(target, 12 * delta);
+    const pPos = this.playerMesh.position;
 
     let sx = 0, sy = 0;
     if (this.cameraShake > 0) {
-      sx = (Math.random() - 0.5) * this.cameraShake;
-      sy = (Math.random() - 0.5) * this.cameraShake;
+      sx = (Math.random() - 0.5) * this.cameraShake * 0.4;
+      sy = (Math.random() - 0.5) * this.cameraShake * 0.4;
       this.cameraShake = Math.max(0, this.cameraShake - delta * 2.2);
     }
 
-    // Crisp Axes.io Angled 3rd-Person Arena Camera!
-    this.camera.position.set(
-      this.cameraTarget.x + sx,
-      this.cameraTarget.y + 13.5 + sy,
-      this.cameraTarget.z + 13.5
-    );
-    this.camera.lookAt(this.cameraTarget);
+    // First-Person Eye Camera + Viewmodel Sway
+    const bob = this.isMoving ? Math.sin(this.walkCycle * 2) * 0.05 : 0;
+    this.camera.position.set(pPos.x + sx, pPos.y + 1.68 + bob + sy, pPos.z);
+    this.camera.rotation.order = 'YXZ';
+    this.camera.rotation.y = this.fpsYaw;
+    this.camera.rotation.x = this.fpsPitch;
+
+    if (this.fpsWeaponGroup) {
+      this.fpsWeaponGroup.visible = (this.state === 'PLAYING');
+      const thrust = this.throwAnimTimer > 0 ? Math.sin((this.throwAnimTimer / 0.25) * Math.PI) : 0;
+      this.fpsWeaponGroup.position.set(
+        0.38 + (this.isMoving ? Math.sin(this.walkCycle) * 0.025 : 0),
+        -0.34 + bob * 0.5,
+        -0.58 - thrust * 0.38
+      );
+      this.fpsWeaponGroup.rotation.x = 0.25 - thrust * 0.9;
+    }
   }
 
   getLeaderboard() {
@@ -2282,6 +2329,7 @@ export class JumanjiGame {
     return {
       px: this.playerMesh.position.x,
       pz: this.playerMesh.position.z,
+      yaw: this.fpsYaw,
       enemies: this.enemies.filter(e => e.state === 'ACTIVE').map(e => ({ x: e.mesh.position.x, z: e.mesh.position.z })),
       boss: this.boss && !this.boss.defeated ? { x: this.boss.mesh.position.x, z: this.boss.mesh.position.z } : null,
       collectibles: this.collectibleMeshes.filter(c => !c.collected).map(c => ({ x: c.group.position.x, z: c.group.position.z, type: c.type })),
@@ -2305,12 +2353,15 @@ export class JumanjiGame {
     soundEngine.startJumanjiDrums(this.levelConfig.drumIntensity);
     this.playCinematic(
       new THREE.Vector3(0, 26, 36),
-      new THREE.Vector3(0, 14.5, 31.5),
+      new THREE.Vector3(0, 2.2, 22),
       new THREE.Vector3(0, 2, -18),
-      new THREE.Vector3(0, 1.2, 18),
-      3.0,
+      new THREE.Vector3(0, 1.7, 10),
+      2.8,
       () => {
-        this.cameraMode = 'FOLLOW';
+        this.cameraMode = 'FPS';
+        this.fpsYaw = 0;
+        this.fpsPitch = -0.04;
+        if (this.playerMesh) this.playerMesh.visible = false;
         this.state = 'PLAYING';
         if (onComplete) onComplete();
       }
@@ -2319,6 +2370,8 @@ export class JumanjiGame {
 
   playEndingCinematic(endingKey, onComplete) {
     this.cameraMode = 'CINEMATIC';
+    if (this.playerMesh) this.playerMesh.visible = true;
+    if (document.exitPointerLock) { try { document.exitPointerLock(); } catch (e) {} }
     const charEnding = this.charData.endings[endingKey];
     soundEngine.stopDrums();
     soundEngine.playSfx('endingFanfare');

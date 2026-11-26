@@ -141,6 +141,9 @@ window.addEventListener('DOMContentLoaded', () => {
   loadProgress();
 
   function showScreen(targetScreen) {
+    if (document.pointerLockElement && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
     [screenIntro, screenTitle, screenSelect, screenEnding, screenGameOver].forEach(s => {
       s.classList.remove('screen--active');
     });
@@ -364,6 +367,12 @@ window.addEventListener('DOMContentLoaded', () => {
   game.onScoreChange = updateScoreHUD;
   game.onSaveProgress = saveProgress;
 
+  const fpsHitmarker = document.getElementById('fps-hitmarker');
+  game.onHitmarker = () => {
+    fpsHitmarker.classList.add('fps-hitmarker--active');
+    setTimeout(() => fpsHitmarker.classList.remove('fps-hitmarker--active'), 140);
+  };
+
   game.onDamageFlash = () => {
     damageVignette.classList.add('damage-vignette--flash');
     setTimeout(() => damageVignette.classList.remove('damage-vignette--flash'), 220);
@@ -486,6 +495,7 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   game.onMatchLevelUp = (lvl) => {
+    if (document.pointerLockElement && document.exitPointerLock) { try { document.exitPointerLock(); } catch (e) {} }
     game.state = 'DIALOGUE';
     const choices = [...PERK_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
     perkCards.innerHTML = '';
@@ -612,7 +622,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (data.boss) plot(data.boss.x, data.boss.z, '#ff0055', 5.5);
     if (data.goal) plot(data.goal.x, data.goal.z, data.goal.active ? '#00ff9d' : '#94a3b8', 4.5);
 
-    // Player Arrow
+    // Player Facing Cone + Dot
+    const fx = -Math.sin(data.yaw || 0);
+    const fz = -Math.cos(data.yaw || 0);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + fx * 14, cy + fz * 14);
+    ctx.stroke();
+
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(cx, cy, 4, 0, Math.PI * 2);
@@ -683,6 +702,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- 6. LEVEL COMPLETE TRANSITION ---
   game.onLevelComplete = (lvlNum, score, coins) => {
+    if (document.pointerLockElement && document.exitPointerLock) { try { document.exitPointerLock(); } catch (e) {} }
     saveProgress();
     lcTitle.textContent = `LEVEL ${lvlNum} COMPLETE!`;
     lcSubtitle.textContent = LEVELS[lvlNum - 1].subtitle;
@@ -703,6 +723,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- 7. THE LAST DECISION & ENDINGS ---
   game.onDecisionTrigger = () => {
+    if (document.pointerLockElement && document.exitPointerLock) { try { document.exitPointerLock(); } catch (e) {} }
     decisionModal.style.display = 'flex';
   };
 
