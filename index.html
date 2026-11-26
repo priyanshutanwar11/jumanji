@@ -57,7 +57,8 @@
         </div>
 
         <div class="title-actions">
-          <button id="btn-audio-toggle" class="btn btn--secondary" type="button">🔊 AMBIENCE: ON</button>
+          <button id="btn-audio-toggle" class="btn btn--secondary" type="button">🔊 AUDIO: ON</button>
+          <button id="btn-sound-settings-title" class="btn btn--secondary" type="button">🎛️ SOUND MIX</button>
           <button id="btn-to-char-select" class="btn btn--primary" type="button">ENTER THE GAME</button>
         </div>
       </div>
@@ -186,6 +187,8 @@
               <span>🪙 <b id="hud-coins">0</b></span>
             </div>
             <button id="btn-hud-audio" class="hud-btn" type="button" title="Toggle Sound">🔊</button>
+            <button id="btn-hud-settings" class="hud-btn" type="button" title="Sound Settings">🎛️</button>
+            <button id="btn-hud-help" class="hud-btn" type="button" title="Controls Tutorial">❓</button>
             <button id="btn-hud-restart" class="hud-btn" type="button" title="Return to Menu">🧭 Menu</button>
           </div>
           <div id="hud-leaderboard" class="axes-leaderboard"></div>
@@ -227,8 +230,8 @@
             <div class="minimap-n">N</div>
           </div>
           <div class="hud-controls-guide">
-            <span><b>[WASD / Arrows]</b> Move &amp; Aim &bull; <b>[Space / Click]</b> Throw Axe</span>
-            <span><b>[Q]</b> Power &bull; <b>[E]</b> Interact &bull; <b>[1-3]</b> Items</span>
+            <span><b>[WASD / Stick]</b> Move &amp; Aim &bull; <b>[Space / Click]</b> Throw Axe</span>
+            <span><b>[C]</b> Dodge &bull; <b>[Q]</b> Power &bull; <b>[E]</b> Interact &bull; <b>[1-3]</b> Items</span>
           </div>
         </div>
 
@@ -248,6 +251,14 @@
         </div>
 
         <div class="hud-action-slots">
+          <div id="hud-interact-btn" class="hud-ability-slot hud-ability-slot--mini" title="Interact [E]">
+            <div class="ability-slot-key">[E]</div>
+            <div class="ability-slot-name">Use</div>
+          </div>
+          <div id="hud-dodge-btn" class="hud-ability-slot hud-ability-slot--mini" title="Dodge Roll [C]">
+            <div class="ability-slot-key">[C]</div>
+            <div class="ability-slot-name">💨</div>
+          </div>
           <div id="hud-attack-btn" class="hud-ability-slot hud-ability-slot--attack" title="Click or Press [Space] to Throw Axe">
             <div class="ability-slot-key">[SPACE]</div>
             <div class="ability-slot-name" style="font-size: 1.5rem;">🪓</div>
@@ -259,6 +270,37 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- SOUND SETTINGS MODAL -->
+    <div id="sound-settings-modal" class="level-complete-modal" style="max-width: 480px; z-index: 62;">
+      <div class="title-tagline">✦ AUDIO MIXER ✦</div>
+      <h2 class="decision-title" style="font-size: 1.65rem; margin-bottom: 18px;">SOUND SETTINGS</h2>
+      <div class="sound-sliders">
+        <label class="sound-row"><span>Master Volume</span><input id="vol-master" type="range" min="0" max="1" step="0.05" value="0.85" /></label>
+        <label class="sound-row"><span>Music (Deep House)</span><input id="vol-music" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
+        <label class="sound-row"><span>Jungle Ambience</span><input id="vol-ambient" type="range" min="0" max="1" step="0.05" value="0.45" /></label>
+        <label class="sound-row"><span>Sound Effects</span><input id="vol-sfx" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 20px;">
+        <button id="btn-sound-mute-all" class="btn btn--secondary" type="button">🔊 UNMUTED</button>
+        <button id="btn-sound-close" class="btn btn--primary" type="button">DONE</button>
+      </div>
+    </div>
+
+    <!-- FIRST-TIME CONTROL TUTORIAL MODAL -->
+    <div id="tutorial-modal" class="level-complete-modal" style="max-width: 620px; z-index: 61;">
+      <div class="title-tagline">✦ SURVIVAL GUIDE ✦</div>
+      <h2 class="decision-title" style="font-size: 1.7rem; margin-bottom: 14px;">HOW TO PLAY</h2>
+      <div class="tut-grid">
+        <div><b>WASD / Arrows / Joystick</b><br/>Move &amp; Aim direction</div>
+        <div><b>Spacebar / Left Click / 🪓</b><br/>Throw spinning weapon</div>
+        <div><b>C / 💨</b><br/>Evasive Dodge Dash (i-frames)</div>
+        <div><b>Q</b><br/>Hero Special Power</div>
+        <div><b>E</b><br/>Open Secret Chests, Pillars &amp; Portals</div>
+        <div><b>1, 2, 3 &amp; TAB</b><br/>Use Items &amp; View Avatar Card</div>
+      </div>
+      <button id="btn-tutorial-close" class="btn btn--primary" type="button" style="margin-top: 20px;">GOT IT — LET'S SURVIVE!</button>
     </div>
 
     <!-- AXES.IO LEVEL-UP PERK PICKER MODAL -->

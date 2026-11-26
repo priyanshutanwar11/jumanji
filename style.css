@@ -982,3 +982,56 @@ body, html {
   width: 112px;
   height: 112px;
 }
+
+/* --- SOUND SETTINGS, TUTORIAL & MINI TOUCH BUTTONS --- */
+.hud-ability-slot--mini {
+  width: 52px;
+  height: 52px;
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+.hud-ability-slot--mini .ability-slot-key { color: #38bdf8; }
+
+.sound-sliders {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sound-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.sound-row input[type="range"] {
+  width: 180px;
+  accent-color: var(--jade);
+  cursor: pointer;
+}
+
+.tut-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.tut-grid div {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(229, 179, 75, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  color: #cbd5e1;
+}
+
+.tut-grid b {
+  color: var(--gold-bright);
+}

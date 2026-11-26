@@ -521,13 +521,63 @@ window.addEventListener('DOMContentLoaded', () => {
   // HUD Buttons
   hudAttackBtn.addEventListener('click', (e) => { e.stopPropagation(); game.throwAxe(); });
   hudAbilityBtn.addEventListener('click', () => game.triggerSpecialAbility());
+  document.getElementById('hud-dodge-btn').addEventListener('click', (e) => { e.stopPropagation(); game.performDodge(); });
+  document.getElementById('hud-interact-btn').addEventListener('click', (e) => { e.stopPropagation(); game.handleInteraction(); });
   invBerry.addEventListener('click', () => game.useInventoryItem('berries'));
   invSpeed.addEventListener('click', () => game.useInventoryItem('speedElixir'));
   invShield.addEventListener('click', () => game.useInventoryItem('shieldCharm'));
 
+  // Sound Settings Panel
+  const soundModal = document.getElementById('sound-settings-modal');
+  const volMaster = document.getElementById('vol-master');
+  const volMusic = document.getElementById('vol-music');
+  const volAmbient = document.getElementById('vol-ambient');
+  const volSfx = document.getElementById('vol-sfx');
+  const btnSoundMuteAll = document.getElementById('btn-sound-mute-all');
+
+  function syncAudioUI() {
+    volMaster.value = soundEngine.volumes.master;
+    volMusic.value = soundEngine.volumes.music;
+    volAmbient.value = soundEngine.volumes.ambient;
+    volSfx.value = soundEngine.volumes.sfx;
+    const m = soundEngine.muted;
+    btnSoundMuteAll.textContent = m ? "🔇 MUTED" : "🔊 UNMUTED";
+    btnHudAudio.textContent = m ? "🔇" : "🔊";
+    btnAudioToggle.textContent = m ? "🔇 AUDIO: OFF" : "🔊 AUDIO: ON";
+  }
+  syncAudioUI();
+
+  volMaster.addEventListener('input', (e) => soundEngine.setVolume('master', e.target.value));
+  volMusic.addEventListener('input', (e) => soundEngine.setVolume('music', e.target.value));
+  volAmbient.addEventListener('input', (e) => soundEngine.setVolume('ambient', e.target.value));
+  volSfx.addEventListener('input', (e) => soundEngine.setVolume('sfx', e.target.value));
+  btnSoundMuteAll.addEventListener('click', () => { soundEngine.init(); soundEngine.toggleMute(); syncAudioUI(); });
+
+  const openSoundSettings = () => { soundEngine.init(); syncAudioUI(); soundModal.style.display = 'flex'; };
+  document.getElementById('btn-sound-settings-title').addEventListener('click', openSoundSettings);
+  document.getElementById('btn-hud-settings').addEventListener('click', openSoundSettings);
+  document.getElementById('btn-sound-close').addEventListener('click', () => { soundModal.style.display = 'none'; });
+
+  // Control Tutorial Modal
+  const tutorialModal = document.getElementById('tutorial-modal');
+  document.getElementById('btn-hud-help').addEventListener('click', () => { tutorialModal.style.display = 'flex'; });
+  document.getElementById('btn-tutorial-close').addEventListener('click', () => {
+    tutorialModal.style.display = 'none';
+    try { localStorage.setItem('jumanji_tutorial_seen_v1', '1'); } catch (e) {}
+  });
+  try {
+    if (!localStorage.getItem('jumanji_tutorial_seen_v1')) {
+      btnConfirmAvatar.addEventListener('click', () => {
+        setTimeout(() => {
+          if (!localStorage.getItem('jumanji_tutorial_seen_v1')) tutorialModal.style.display = 'flex';
+        }, 3400);
+      }, { once: true });
+    }
+  } catch (e) {}
+
   btnHudAudio.addEventListener('click', () => {
-    const muted = soundEngine.toggleMute();
-    btnHudAudio.textContent = muted ? "🔇" : "🔊";
+    soundEngine.toggleMute();
+    syncAudioUI();
   });
 
   btnHudRestart.addEventListener('click', returnToSelectMenu);

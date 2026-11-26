@@ -13,12 +13,12 @@ import { LEVELS } from './levels.js';
 import { soundEngine } from './audio.js';
 
 const JUMANJI_ANIMALS = [
-  { type: 'jaguar', name: 'Jade Jaguar', power: 'pounce', color: 0x00ff88, hp: 100, speed: 4.5 },
-  { type: 'rhino', name: 'Charging Rhino', power: 'stampede', color: 0xf59e0b, hp: 145, speed: 3.6 },
-  { type: 'hippo', name: 'River Hippo', power: 'slam', color: 0x8b5cf6, hp: 135, speed: 3.2 },
-  { type: 'mandrill', name: 'Savage Mandrill', power: 'triple', color: 0xef4444, hp: 90, speed: 4.4 },
-  { type: 'cobra', name: 'Venom Cobra', power: 'frost', color: 0x22c55e, hp: 85, speed: 4.0 },
-  { type: 'ostrich', name: 'Fierce Ostrich', power: 'rapid', color: 0xfbbf24, hp: 80, speed: 5.0 }
+  { type: 'jaguar', name: 'Jade Jaguar', power: 'pounce', color: 0x00ff88, hp: 100, speed: 2.3 },
+  { type: 'rhino', name: 'Charging Rhino', power: 'stampede', color: 0xf59e0b, hp: 145, speed: 1.8 },
+  { type: 'hippo', name: 'River Hippo', power: 'slam', color: 0x38bdf8, hp: 135, speed: 1.7 },
+  { type: 'mandrill', name: 'Savage Mandrill', power: 'triple', color: 0xef4444, hp: 90, speed: 2.2 },
+  { type: 'cobra', name: 'Venom Cobra', power: 'frost', color: 0x22c55e, hp: 85, speed: 2.0 },
+  { type: 'ostrich', name: 'Fierce Ostrich', power: 'rapid', color: 0xfbbf24, hp: 80, speed: 2.6 }
 ];
 
 export const PERK_POOL = [
@@ -57,6 +57,7 @@ export class JumanjiGame {
     this.throwCooldown = 0;
     this.speedBoostTimer = 0;
     this.shieldTimer = 0;
+    this.dodgeTimer = 0;
     this.slowTimer = 0;
     this.stealthTimer = 0;
     this.perks = new Set();
@@ -92,7 +93,14 @@ export class JumanjiGame {
     this.boss = null;
     this.traps = [];
     this.checkpoints = [];
+    this.secretChests = [];
     this.beacons = [];
+    this.pressurePads = [];
+    this.levers = [];
+    this.sequencePedestals = [];
+    this.sequenceIndex = 0;
+    this.boxWalls = [];
+    this.atmosphericParticles = null;
     this.falconJewel = null;
     this.exitPortal = null;
     this.nigelMesh = null;
@@ -207,6 +215,7 @@ export class JumanjiGame {
       if (this.state !== 'PLAYING') return;
       if (e.code === 'KeyQ') this.triggerSpecialAbility();
       if (e.code === 'KeyF') this.throwAxe();
+      if (e.code === 'KeyC') this.performDodge();
       if (e.code === 'KeyE') this.handleInteraction();
       if (e.code === 'Digit1') this.useInventoryItem('berries');
       if (e.code === 'Digit2') this.useInventoryItem('speedElixir');
@@ -264,7 +273,14 @@ export class JumanjiGame {
     this.boss = null;
     this.traps = [];
     this.checkpoints = [];
+    this.secretChests = [];
     this.beacons = [];
+    this.pressurePads = [];
+    this.levers = [];
+    this.sequencePedestals = [];
+    this.sequenceIndex = 0;
+    this.boxWalls = [];
+    this.atmosphericParticles = null;
     this.runePillarMeshes = [];
     this.collectibleMeshes = [];
     this.collisionObjects = [];
@@ -275,19 +291,34 @@ export class JumanjiGame {
     this.templeGateMesh = null;
   }
 
-  createCheckeredTexture(c1, c2) {
+  createGrassTexture(baseColor, bladeColor) {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 256;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = c1; ctx.fillRect(0, 0, 256, 256);
-    ctx.fillStyle = c2;
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.fillRect(128, 128, 128, 128);
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, 256, 256);
+
+    for (let i = 0; i < 60; i++) {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)';
+      ctx.beginPath();
+      ctx.arc(Math.random() * 256, Math.random() * 256, 8 + Math.random() * 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = bladeColor;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 320; i++) {
+      const gx = Math.random() * 256;
+      const gy = Math.random() * 256;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(gx + (Math.random() - 0.5) * 6, gy - 5 - Math.random() * 6);
+      ctx.stroke();
+    }
+
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(22, 22);
-    tex.magFilter = THREE.NearestFilter;
+    tex.repeat.set(24, 24);
     return tex;
   }
 
@@ -305,21 +336,23 @@ export class JumanjiGame {
     this.questObjective = cfg.objective;
     this.checkpointPos = new THREE.Vector3(0, 0, 18);
 
-    // Vibrant Axes.io Sky & Checkered Palette per Level
+    // Natural Grass & Terrain Palette per Level
     const palettes = [
-      { sky: 0x5c8ae6, grass1: '#4ade80', grass2: '#22c55e' }, // Lvl 1: Sunny Green
-      { sky: 0x3b6ca8, grass1: '#34d399', grass2: '#10b981' }, // Lvl 2: Temple Emerald
-      { sky: 0x5b3e7a, grass1: '#a3e635', grass2: '#65a30d' }, // Lvl 3: Twilight Hunt
-      { sky: 0x451a1a, grass1: '#78716c', grass2: '#57534e' }, // Lvl 4: Obsidian Fortress
-      { sky: 0x1e293b, grass1: '#38bdf8', grass2: '#0284c7' }  // Lvl 5: Storm Summit
+      { sky: 0x4b7f52, grass1: '#2e6f3e', grass2: '#3f8f4e' }, // Lvl 1: Lush Jungle Grass
+      { sky: 0x2c524b, grass1: '#265c42', grass2: '#357a57' }, // Lvl 2: Mossy Temple Grass
+      { sky: 0x4b3b5c, grass1: '#4d6b2d', grass2: '#648a3b' }, // Lvl 3: Twilight Savannah Grass
+      { sky: 0x3b1818, grass1: '#3a3532', grass2: '#4d4440' }, // Lvl 4: Volcanic Ash & Moss
+      { sky: 0x152238, grass1: '#263849', grass2: '#334d63' }  // Lvl 5: Stormy Summit Moss
     ];
     const pal = palettes[levelNum - 1] || palettes[0];
     this.scene.background = new THREE.Color(pal.sky);
-    this.scene.fog = new THREE.FogExp2(pal.sky, 0.0085);
+    this.scene.fog = new THREE.FogExp2(pal.sky, 0.0095);
+    soundEngine.setRealm(levelNum);
     soundEngine.setIntensity(cfg.drumIntensity);
+    this.buildAtmosphericParticles(levelNum);
 
-    // Checkered Arena Ground
-    const floorTex = this.createCheckeredTexture(pal.grass1, pal.grass2);
+    // Natural Grass Ground
+    const floorTex = this.createGrassTexture(pal.grass1, pal.grass2);
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(130, 130),
       new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 })
@@ -331,34 +364,14 @@ export class JumanjiGame {
     // Arena Walls / Cliffs
     this.buildArenaWalls();
 
-    // River & Bridge (Water blocks walking outside bridge!)
-    if (levelNum <= 3) {
-      this.buildRiverAndBridge(-4);
-    }
+    // Level-specific maps & puzzles built inside buildLevel1..5!
+    this.buildThickJungle(levelNum);
 
-    // Lush Jumanji Jungle Environment (Palms, Canopy Trees, Ferns, Rocks)
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      const r = 34 + Math.random() * 14;
-      const tx = Math.cos(a) * r;
-      const tz = Math.sin(a) * r - 12;
-      if (i % 2 === 0) this.buildPalmTree(tx, tz);
-      else this.buildStylizedTree(tx, tz);
-    }
-    for (let i = 0; i < 28; i++) {
-      const fx = (Math.random() - 0.5) * 70;
-      const fz = (Math.random() - 0.5) * 74 - 12;
-      if (Math.abs(fx) > 9 && Math.abs(fz - (-4)) > 5) {
-        if (i % 3 === 0) this.buildMossyRock(fx, fz);
-        else this.buildJungleFern(fx, fz);
-      }
-    }
-
-    // Spawn 16 XP Gems + Coins across arena (avoiding river water!)
+    // Spawn 16 XP Gems + Coins across arena (avoiding river/lava!)
     for (let i = 0; i < 16; i++) {
       const gx = (Math.random() - 0.5) * 52;
       let gz = (Math.random() - 0.5) * 64 - 12;
-      if (levelNum <= 3 && Math.abs(gz - (-4)) < 4.8) gz += 6;
+      if (Math.abs(gz - (-4)) < 5 || Math.abs(gz - (-20)) < 5) gz += 7;
       this.spawnCollectible(gx, 0.65, gz, i % 2 === 0 ? 'gem' : 'coin', 'XP Gem');
     }
 
@@ -393,7 +406,7 @@ export class JumanjiGame {
     });
   }
 
-  buildRiverAndBridge(zPos) {
+  buildRiverAndTwinBridges(zPos) {
     const river = new THREE.Mesh(
       new THREE.PlaneGeometry(96, 7),
       new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.2, metalness: 0.1 })
@@ -402,16 +415,101 @@ export class JumanjiGame {
     river.position.set(0, 0.04, zPos);
     this.levelGroup.add(river);
 
-    const bridge = new THREE.Mesh(
-      new THREE.BoxGeometry(10, 0.35, 8.5),
-      new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.8 })
-    );
-    bridge.position.set(0, 0.12, zPos);
-    bridge.receiveShadow = true;
-    this.levelGroup.add(bridge);
+    [-14, 14].forEach(bx => {
+      const bridge = new THREE.Mesh(
+        new THREE.BoxGeometry(8, 0.35, 8.5),
+        new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 })
+      );
+      bridge.position.set(bx, 0.12, zPos);
+      bridge.receiveShadow = true;
+      this.levelGroup.add(bridge);
+    });
 
-    // Block walking on water outside the bridge!
-    this.waterZones.push({ z: zPos, halfDepth: 3.5, bridgeHalfWidth: 4.6 });
+    this.waterZones.push({ z: zPos, halfDepth: 3.5, bridges: [-14, 14], bridgeHalfWidth: 3.8 });
+  }
+
+  buildWallBox(x, z, w, d, color = 0x57534e) {
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(w, 3.8, d),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.9 })
+    );
+    m.position.set(x, 1.9, z);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    this.levelGroup.add(m);
+    this.boxWalls.push({ x, z, hw: w / 2, hd: d / 2 });
+  }
+
+  buildTempleMazeWalls() {
+    const c = 0x475569;
+    this.buildWallBox(-14, 6, 16, 2.5, c);
+    this.buildWallBox(14, 6, 16, 2.5, c);
+    this.buildWallBox(0, -8, 18, 2.5, c);
+    this.buildWallBox(-18, -20, 2.5, 18, c);
+    this.buildWallBox(18, -20, 2.5, 18, c);
+  }
+
+  buildCanyonRidges() {
+    const c = 0x78350f;
+    this.buildWallBox(-12, 2, 12, 6, c);
+    this.buildWallBox(12, -10, 12, 6, c);
+    this.buildWallBox(-12, -24, 12, 6, c);
+    this.buildWallBox(12, -34, 12, 6, c);
+  }
+
+  buildDualLavaMoats() {
+    const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+    const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+    [-2, -22].forEach((lz, idx) => {
+      const lava = new THREE.Mesh(new THREE.PlaneGeometry(96, 6.5), lavaMat);
+      lava.rotation.x = -Math.PI / 2;
+      lava.position.set(0, 0.04, lz);
+      this.levelGroup.add(lava);
+
+      const bridges = idx === 0 ? [-16, 0, 16] : [-12, 12];
+      bridges.forEach(bx => {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.35, 8.0), bridgeMat);
+        b.position.set(bx, 0.12, lz);
+        this.levelGroup.add(b);
+      });
+      this.waterZones.push({ z: lz, halfDepth: 3.2, bridges, bridgeHalfWidth: 3.6 });
+    });
+  }
+
+  spawnPressurePad(x, z, label) {
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 1.7, 0.2, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+    );
+    pad.position.set(x, 0.12, z);
+    this.levelGroup.add(pad);
+    this.pressurePads.push({ mesh: pad, label, active: false });
+  }
+
+  spawnLever(x, z, label) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.6, 1.0), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+    base.position.y = 0.3; g.add(base);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.4, 6), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+    handle.position.y = 0.9; handle.rotation.z = 0.45; g.add(handle);
+    this.levelGroup.add(g);
+    this.levers.push({ group: g, handle, label, pulled: false });
+    this.collisionObjects.push({ x, z, radius: 0.9 });
+  }
+
+  spawnSequencePedestal(x, z, orderIdx, colorHex, label) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+    base.position.y = 0.75; g.add(base);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), new THREE.MeshBasicMaterial({ color: colorHex }));
+    crystal.position.y = 2.1; g.add(crystal);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.35, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: orderIdx === 0 ? 0.9 : 0.15 }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.12; g.add(ring);
+    this.levelGroup.add(g);
+    this.sequencePedestals.push({ group: g, crystal, ring, orderIdx, colorHex, label, solved: false });
+    this.collisionObjects.push({ x, z, radius: 1.0 });
   }
 
   buildPalmTree(x, z) {
@@ -480,78 +578,239 @@ export class JumanjiGame {
     this.collisionObjects.push({ x, z, radius: 1.1 });
   }
 
+  buildAtmosphericParticles(levelNum) {
+    const count = 85;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 76;
+      pos[i * 3 + 1] = 0.8 + Math.random() * 7.0;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 84 - 12;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const colors = [0xd9ff88, 0x38bdf8, 0xfbbf24, 0xff5500, 0xc084fc];
+    const mat = new THREE.PointsMaterial({ color: colors[levelNum - 1] || 0xd9ff88, size: 0.32, transparent: true, opacity: 0.82 });
+    this.atmosphericParticles = new THREE.Points(geo, mat);
+    this.levelGroup.add(this.atmosphericParticles);
+  }
+
+  buildThickJungle(levelNum) {
+    // 1. Dense Double-Ring Perimeter Rainforest Wall (46 Trees)
+    for (let i = 0; i < 46; i++) {
+      const a = (i / 46) * Math.PI * 2;
+      const r = (i % 2 === 0 ? 32 : 41) + Math.random() * 6;
+      const tx = Math.cos(a) * r;
+      const tz = Math.sin(a) * r - 12;
+      if (i % 2 === 0) this.buildPalmTree(tx, tz);
+      else this.buildStylizedTree(tx, tz);
+    }
+
+    // 2. Interior Jungle Groves along the flanks (keeps central bridge/lanes clear)
+    for (let i = 0; i < 14; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const tx = side * (16 + Math.random() * 20);
+      let tz = (Math.random() - 0.5) * 68 - 12;
+      if (levelNum <= 3 && Math.abs(tz - (-4)) < 5.5) tz += 7;
+      if (i % 2 === 0) this.buildPalmTree(tx, tz);
+      else this.buildStylizedTree(tx, tz);
+    }
+
+    // 3. Thick Undergrowth: 65 Tropical Ferns, Broadleaf Bushes & Mossy Boulders
+    const bushMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
+    const bushGeo = new THREE.DodecahedronGeometry(1.15, 1);
+    for (let i = 0; i < 65; i++) {
+      const fx = (Math.random() - 0.5) * 76;
+      const fz = (Math.random() - 0.5) * 78 - 12;
+      if (Math.abs(fx) > 8 && (levelNum > 3 || Math.abs(fz - (-4)) > 4.8)) {
+        if (i % 4 === 0) {
+          this.buildMossyRock(fx, fz);
+        } else if (i % 3 === 0) {
+          const bush = new THREE.Mesh(bushGeo, bushMat);
+          bush.position.set(fx, 0.75, fz);
+          bush.scale.set(1.2, 0.85, 1.2);
+          this.levelGroup.add(bush);
+        } else {
+          this.buildJungleFern(fx, fz);
+        }
+      }
+    }
+  }
+
+  buildWaterfall(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const cliff = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 6), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 }));
+    cliff.position.y = 6; g.add(cliff);
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 11.5), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 }));
+    fall.position.set(0, 5.8, 3.05); g.add(fall);
+    this.levelGroup.add(g);
+    this.collisionObjects.push({ x, z, radius: 4.5 });
+  }
+
+  buildTempleColumns() {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
+    for (let z = 10; z >= -36; z -= 14) {
+      [-11, 11].forEach(x => {
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 7, 8), mat);
+        col.position.set(x, 3.5, z); col.castShadow = true;
+        this.levelGroup.add(col);
+        this.collisionObjects.push({ x, z, radius: 1.2 });
+      });
+    }
+  }
+
+  buildCampfire(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 6), new THREE.MeshBasicMaterial({ color: 0xff7700 }));
+    flame.position.y = 0.7; g.add(flame);
+    this.levelGroup.add(g);
+  }
+
+  buildLavaChannels() {
+    const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+    [-22, 22].forEach(x => {
+      const stream = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 86), lavaMat);
+      stream.rotation.x = -Math.PI / 2;
+      stream.position.set(x, 0.05, -14);
+      this.levelGroup.add(stream);
+    });
+  }
+
+  buildShadowCrystals() {
+    const mat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0x6b21a8 });
+    [[-16, -8], [16, -8], [-18, -30], [18, -30]].forEach(([x, z]) => {
+      const cry = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 0), mat);
+      cry.position.set(x, 2.2, z);
+      this.levelGroup.add(cry);
+      this.collisionObjects.push({ x, z, radius: 1.2 });
+    });
+  }
+
+  spawnSecretChest(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.95, 1.0), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 }));
+    box.position.y = 0.48; box.castShadow = true; g.add(box);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.2, 1.05), new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.8 }));
+    trim.position.y = 0.85; g.add(trim);
+    this.levelGroup.add(g);
+    this.secretChests.push({ group: g, trim, opened: false });
+    this.collisionObjects.push({ x, z, radius: 1.0 });
+  }
+
   buildLevel1() {
-    this.spawnCollectible(-14, 0.8, 4, 'crystal', 'Emerald Sun Crystal');
+    this.buildRiverAndTwinBridges(-4);
+    this.buildWaterfall(-28, -4);
+    this.spawnSecretChest(-22, -24);
+    this.spawnPressurePad(-12, 8, 'Sun Pad');
+    this.spawnPressurePad(12, 8, 'Moon Pad');
+    this.spawnCollectible(-14, 0.8, -16, 'crystal', 'Emerald Sun Crystal');
     this.spawnCollectible(16, 0.8, -14, 'crystal', 'Emerald Sun Crystal');
-    this.spawnCollectible(-16, 0.8, -32, 'crystal', 'Emerald Sun Crystal');
-    this.spawnCollectible(10, 0.7, 8, 'berry', 'Healing Berry');
+    this.spawnCollectible(0, 0.8, -32, 'crystal', 'Emerald Sun Crystal');
+    this.spawnCollectible(10, 0.7, 12, 'berry', 'Healing Berry');
     this.spawnCheckpoint(0, 0, -16);
 
-    // Jumanji Animals (Jaguar, Hippo, Cobra)
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[0], -10, -18);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[2], 12, -22);
-    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[4], -6, 6);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[4], -8, 6);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[3], 10, 4);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[5], 0, -34);
     this.buildExitPortal(0, 0, -48, false);
   }
 
   buildLevel2() {
+    this.buildTempleMazeWalls();
+    this.buildTempleColumns();
+    this.spawnSecretChest(22, -14);
     this.spawnSpikeTrap(0, 2, 0);
     this.spawnSpikeTrap(-6, -18, 1.2);
     this.spawnSpikeTrap(6, -26, 2.4);
 
+    this.spawnLever(-24, -10, 'West Temple Lever');
+    this.spawnLever(24, -10, 'East Temple Lever');
     this.sunPillars = [
       { id: 0, currentAngle: 90, targetAngle: 0, solved: false, name: 'Sun Rune' },
       { id: 1, currentAngle: 180, targetAngle: 0, solved: false, name: 'Moon Rune' },
       { id: 2, currentAngle: 270, targetAngle: 0, solved: false, name: 'Earth Rune' }
     ];
     this.buildRunePillars(-36);
-    this.spawnCollectible(-14, 0.8, 2, 'key', 'Golden Temple Key');
+    this.spawnCollectible(-14, 0.8, 12, 'key', 'Golden Temple Key');
     this.spawnCollectible(16, 0.8, -22, 'key', 'Golden Temple Key');
     this.spawnCollectible(-12, 0.7, -14, 'shield', 'Aegis Shield');
     this.spawnCheckpoint(0, 0, -12);
 
-    // Mandrill, Cobra & Jaguar
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[3], -8, -22);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[4], 10, -28);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[0], 0, -32);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[1], -12, 12);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[2], 12, -14);
     this.buildExitPortal(0, 0, -50, false);
   }
 
   buildLevel3() {
-    this.spawnCollectible(-14, 0.8, 6, 'crystal', 'Survival Relic');
-    this.spawnCollectible(14, 0.8, -4, 'crystal', 'Survival Relic');
-    this.spawnCollectible(-15, 0.8, -26, 'crystal', 'Survival Relic');
-    this.spawnCollectible(13, 0.8, -38, 'crystal', 'Survival Relic');
+    this.buildCanyonRidges();
+    this.buildCampfire(-8, 10);
+    this.buildCampfire(8, -22);
+    this.spawnSecretChest(-22, -20);
+    this.spawnSequencePedestal(-14, 10, 0, 0xf59e0b, '1st Amber Crystal');
+    this.spawnSequencePedestal(0, -16, 1, 0x38bdf8, '2nd Cyan Crystal');
+    this.spawnSequencePedestal(14, -26, 2, 0x00ff88, '3rd Emerald Crystal');
+    this.spawnLever(-22, -6, 'West Spirit Totem');
+    this.spawnLever(22, -18, 'East Spirit Totem');
+    this.spawnCollectible(-14, 0.8, -8, 'crystal', 'Survival Relic');
+    this.spawnCollectible(14, 0.8, 2, 'crystal', 'Survival Relic');
+    this.spawnCollectible(-15, 0.8, -32, 'crystal', 'Survival Relic');
+    this.spawnCollectible(13, 0.8, -42, 'crystal', 'Survival Relic');
     this.spawnCollectible(0, 0.7, 4, 'speed', 'Speed Elixir');
-    this.spawnCheckpoint(0, 0, -16);
+    this.spawnCheckpoint(0, 0, -14);
 
-    // Rhino Stampede, Ostrich & Jaguars
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[1], -10, -12);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[5], 10, -20);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[0], 0, -34);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[4], -12, 12);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[3], 12, -30);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[2], -6, -42);
     this.buildExitPortal(0, 0, -52, false);
   }
 
   buildLevel4() {
-    this.spawnMovingBarrier(-10, 10, -6, 5.0);
-    this.spawnMovingBarrier(-10, 10, -26, 6.5);
-    this.spawnBeacon(-12, 0, -8, 'West Beacon');
-    this.spawnBeacon(12, 0, -22, 'East Beacon');
-    this.spawnBeacon(0, 0, -38, 'Core Beacon');
-    this.spawnCheckpoint(0, 0, -16);
+    this.buildDualLavaMoats();
+    this.spawnSecretChest(22, -12);
+    this.spawnMovingBarrier(-10, 10, -10, 5.0);
+    this.spawnMovingBarrier(-10, 10, -30, 6.5);
+    this.spawnBeacon(-14, 0, -12, 'West Beacon');
+    this.spawnBeacon(14, 0, -12, 'East Beacon');
+    this.spawnBeacon(0, 0, -34, 'Core Beacon');
+    this.spawnLever(-18, -32, 'West Power Valve');
+    this.spawnLever(18, -32, 'East Power Valve');
+    this.sunPillars = [
+      { id: 0, currentAngle: 90, targetAngle: 0, solved: false, name: 'Left Obsidian Cipher' },
+      { id: 1, currentAngle: 180, targetAngle: 0, solved: false, name: 'Right Obsidian Cipher' }
+    ];
+    this.buildRunePillars(-42);
+    this.spawnCheckpoint(0, 0, -12);
 
-    // Rhino, Mandrill & Hippo
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[1], -10, -12);
-    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[3], 10, -24);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[3], 10, -14);
     this.spawnJumanjiAnimal(JUMANJI_ANIMALS[2], 0, -40);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[0], -12, 8);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[4], 12, 8);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[5], -6, -32);
     this.buildExitPortal(0, 0, -52, false);
   }
 
   buildLevel5() {
+    this.buildShadowCrystals();
+    this.spawnSecretChest(-16, 4);
+    this.spawnLever(-16, -24, 'Left Elemental Seal');
+    this.spawnLever(16, -24, 'Right Elemental Seal');
     this.buildGrandTempleSanctuary(0, 0, -50);
     this.spawnCollectible(-8, 0.7, 6, 'berry', 'Healing Berry');
     this.spawnCollectible(8, 0.7, 6, 'shield', 'Aegis Shield');
     this.spawnCheckpoint(0, 0, 10);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[0], -10, -6);
+    this.spawnJumanjiAnimal(JUMANJI_ANIMALS[1], 10, -6);
     this.spawnBoss(0, 0, -18);
   }
 
@@ -575,20 +834,24 @@ export class JumanjiGame {
   }
 
   buildRunePillars(zPos) {
-    [{ x: -5, z: zPos, id: 0, color: 0xffaa00 }, { x: 0, z: zPos - 2, id: 1, color: 0x00ccff }, { x: 5, z: zPos, id: 2, color: 0x00ff88 }].forEach(p => {
-      const cfg = this.sunPillars[p.id];
+    const offsets = this.sunPillars.length === 2 ? [-6, 6] : [-5, 0, 5];
+    this.sunPillars.forEach((cfg, idx) => {
+      const px = offsets[idx] || 0;
+      const pz = (this.sunPillars.length === 3 && idx === 1) ? zPos - 2 : zPos;
+      const colors = [0xffaa00, 0x00ccff, 0x00ff88];
+      const pColor = colors[idx % colors.length];
       const group = new THREE.Group();
-      group.position.set(p.x, 0, p.z);
+      group.position.set(px, 0, pz);
       const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 2.0, 8), new THREE.MeshStandardMaterial({ color: 0x64748b }));
       dial.position.y = 1.2;
       dial.rotation.y = THREE.MathUtils.degToRad(cfg.currentAngle);
       group.add(dial);
-      const sym = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.7, 1.75), new THREE.MeshBasicMaterial({ color: p.color }));
+      const sym = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.7, 1.75), new THREE.MeshBasicMaterial({ color: pColor }));
       sym.position.y = 1.2;
       dial.add(sym);
       this.levelGroup.add(group);
-      this.runePillarMeshes.push({ group, dial, symbol: sym, config: cfg, baseColor: p.color });
-      this.collisionObjects.push({ x: p.x, z: p.z, radius: 1.2 });
+      this.runePillarMeshes.push({ group, dial, symbol: sym, config: cfg, baseColor: pColor });
+      this.collisionObjects.push({ x: px, z: pz, radius: 1.2 });
     });
   }
 
@@ -1068,23 +1331,61 @@ export class JumanjiGame {
     }
   }
 
-  spawnProjectile(origin, dir, owner, colorHex, isFire = false, isFrost = false) {
-    const axe = this.buildAxeMesh(isFire ? 0xff5500 : (isFrost ? 0x38bdf8 : colorHex));
-    if (owner === 'player' && this.perks.has('giant')) axe.scale.setScalar(1.45);
-    axe.position.set(origin.x + dir.x * 0.9, origin.y + 1.25, origin.z + dir.z * 0.9);
-    this.levelGroup.add(axe);
+  buildPowerProjectile(powerType, colorHex) {
+    const g = new THREE.Group();
+    if (powerType === 'stampede') {
+      // Rhino throws heavy Cracked Stone Boulder
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0), new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.9 }));
+      g.add(rock);
+    } else if (powerType === 'slam') {
+      // Hippo throws Aqua Water Surge Orb
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 6, 14), new THREE.MeshBasicMaterial({ color: 0x0ea5e9 }));
+      g.add(orb, ring);
+    } else if (powerType === 'frost') {
+      // Cobra spits Green Venom Globule
+      const venom = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 8), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+      g.add(venom);
+    } else if (powerType === 'pounce') {
+      // Jaguar throws Emerald Shadow Claw
+      const claw = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 6, 12, Math.PI), new THREE.MeshBasicMaterial({ color: 0x00ff88 }));
+      claw.rotation.x = Math.PI / 2;
+      g.add(claw);
+    } else if (powerType === 'rapid') {
+      // Ostrich throws Golden Razor Feather Quill
+      const quill = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.85, 5), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+      quill.rotation.x = Math.PI / 2;
+      g.add(quill);
+    } else if (powerType === 'triple') {
+      // Mandrill throws Red Jungle Dart/Fruit
+      const dart = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+      g.add(dart);
+    } else {
+      return this.buildAxeMesh(colorHex);
+    }
+    return g;
+  }
+
+  spawnProjectile(origin, dir, owner, colorHex, isFire = false, isFrost = false, powerType = null) {
+    const projMesh = (owner === 'enemy' && powerType)
+      ? this.buildPowerProjectile(powerType, colorHex)
+      : this.buildAxeMesh(isFire ? 0xff5500 : (isFrost ? 0x38bdf8 : colorHex));
+
+    if (owner === 'player' && this.perks.has('giant')) projMesh.scale.setScalar(1.45);
+    projMesh.position.set(origin.x + dir.x * 0.9, origin.y + 1.25, origin.z + dir.z * 0.9);
+    this.levelGroup.add(projMesh);
 
     const baseDmg = owner === 'player'
       ? Math.round(this.charData.stats.strength * 0.42) + (this.perks.has('giant') ? 15 : 0) + (isFire ? 18 : 0)
-      : 18;
+      : (powerType === 'stampede' ? 22 : 16);
 
     this.projectiles.push({
-      mesh: axe,
+      mesh: projMesh,
       dir: dir.clone().normalize(),
       owner,
-      speed: owner === 'player' ? 24 : 16,
+      speed: owner === 'player' ? 24 : 12,
       dmg: baseDmg,
-      life: 1.5,
+      life: 1.8,
       bounces: (owner === 'player' && this.perks.has('ricochet')) ? 1 : 0,
       isFrost
     });
@@ -1182,8 +1483,6 @@ export class JumanjiGame {
     this.boss.hp = Math.max(0, this.boss.hp - dmg);
     soundEngine.playSfx('hit');
     this.cameraShake = Math.max(this.cameraShake, 0.18);
-    if (this.onBossUpdate) this.onBossUpdate(this.boss);
-
     if (this.boss.hp <= 0) {
       this.boss.defeated = true;
       this.levelGroup.remove(this.boss.mesh);
@@ -1192,6 +1491,7 @@ export class JumanjiGame {
       this.questObjective = "Claim the Falcon Jewel on the Altar!";
       this.showNotification("SHADOW COLOSSUS DEFEATED! Claim the Falcon Jewel!");
     }
+    if (this.onBossUpdate) this.onBossUpdate(this.boss);
   }
 
   gainXP(amount) {
@@ -1287,9 +1587,8 @@ export class JumanjiGame {
     this.beaconsSabotaged++;
     this.addScore(200);
     soundEngine.playSfx('puzzleSolve');
-    this.questObjective = `Sabotage Dark Signal Beacons (${this.beaconsSabotaged}/3)`;
     this.showNotification(`${b.name} Sabotaged! (${this.beaconsSabotaged}/3)`);
-    if (this.beaconsSabotaged >= 3) this.activateExitPortal();
+    this.evaluateLevelUnlock();
   }
 
   solveAllPillars() {
@@ -1357,7 +1656,54 @@ export class JumanjiGame {
       soundEngine.playSfx('click');
       p.solved = (p.currentAngle === p.targetAngle);
       entity.symbol.material.color.setHex(p.solved ? 0x00ffaa : entity.baseColor);
-      this.checkLevel2Unlock();
+      this.evaluateLevelUnlock();
+    } else if (type === 'chest') {
+      if (!entity.opened) {
+        entity.opened = true;
+        entity.trim.material.color.setHex(0x64748b);
+        this.coins += 3;
+        this.addScore(300);
+        this.inventory.shieldCharm++;
+        soundEngine.playSfx('powerup');
+        if (this.onInventoryChange) this.onInventoryChange(this.inventory);
+        if (this.onFloatingPopup) this.onFloatingPopup('+300 SECRET!', '#00ff9d');
+        this.showNotification("SECRET TREASURE FOUND! +300 Score, +3 Coins, +1 Shield Charm!");
+      }
+    } else if (type === 'lever') {
+      if (!entity.pulled) {
+        entity.pulled = true;
+        entity.handle.rotation.z = -0.45;
+        entity.handle.material.color.setHex(0x00ff88);
+        this.addScore(150);
+        soundEngine.playSfx('puzzleSolve');
+        if (this.onFloatingPopup) this.onFloatingPopup('+150 SOLVED!', '#00ff9d');
+        this.showNotification(`${entity.label} Activated!`);
+        if (this.currentLevel === 5 && this.boss && !this.boss.defeated && this.levers.every(l => l.pulled)) {
+          this.boss.hp = Math.max(40, Math.round(this.boss.hp * 0.55));
+          if (this.onBossUpdate) this.onBossUpdate(this.boss);
+          this.showNotification("ELEMENTAL SEALS BROKEN! Boss armor shattered!");
+        }
+        this.evaluateLevelUnlock();
+      }
+    } else if (type === 'sequence') {
+      if (!entity.solved) {
+        if (entity.orderIdx === this.sequenceIndex) {
+          entity.solved = true;
+          entity.ring.material.color.setHex(0x00ff88);
+          entity.ring.material.opacity = 0.9;
+          this.sequenceIndex++;
+          this.addScore(150);
+          soundEngine.playSfx('puzzleSolve');
+          if (this.onFloatingPopup) this.onFloatingPopup(`+${entity.orderIdx + 1}/3!`, '#00ff9d');
+          this.sequencePedestals.forEach(sp => {
+            if (!sp.solved) sp.ring.material.opacity = sp.orderIdx === this.sequenceIndex ? 0.95 : 0.15;
+          });
+          this.evaluateLevelUnlock();
+        } else {
+          this.showNotification(`Activate the glowing crystal #${this.sequenceIndex + 1} first!`);
+          soundEngine.playSfx('trap');
+        }
+      }
     } else if (type === 'beacon') {
       this.sabotageBeacon(entity);
     } else if (type === 'portal') {
@@ -1371,16 +1717,22 @@ export class JumanjiGame {
     }
   }
 
-  checkLevel2Unlock() {
-    const allSolved = this.sunPillars.length > 0 && this.sunPillars.every(p => p.solved);
-    if (allSolved && !this.gateUnlocked) {
-      this.gateUnlocked = true;
-      soundEngine.playSfx('puzzleSolve');
-      this.addScore(300);
-      this.showNotification("RUNE LOCK SOLVED!");
-      if (this.inventory.keys >= 2 || this.charData.id === 'ming') this.activateExitPortal();
-      else this.questObjective = `Find 2 Golden Temple Keys (${this.inventory.keys}/2)`;
+  evaluateLevelUnlock() {
+    const padsOk = this.pressurePads.every(p => p.active);
+    const leversOk = this.levers.every(l => l.pulled);
+    const runesOk = this.sunPillars.every(p => p.solved);
+    const seqOk = this.sequencePedestals.every(s => s.solved);
+    const beaconsOk = this.beacons.every(b => b.sabotaged);
+    const itemsOk = this.levelItemsCollected >= this.levelItemsRequired;
+    const keysOk = this.currentLevel !== 2 || this.inventory.keys >= 2 || this.charData.id === 'ming';
+
+    if (padsOk && leversOk && runesOk && seqOk && beaconsOk && itemsOk && keysOk) {
+      this.activateExitPortal();
     }
+  }
+
+  checkLevel2Unlock() {
+    this.evaluateLevelUnlock();
   }
 
   activateExitPortal() {
@@ -1414,6 +1766,7 @@ export class JumanjiGame {
       this.updateBoss(delta);
       this.updateProjectiles(delta);
       this.updateTraps(delta);
+      this.updatePuzzles();
       this.updateCheckpoints();
       this.updateCollectibles(delta);
       this.checkInteractions();
@@ -1436,6 +1789,7 @@ export class JumanjiGame {
     if (this.throwCooldown > 0) this.throwCooldown = Math.max(0, this.throwCooldown - delta);
     if (this.speedBoostTimer > 0) this.speedBoostTimer = Math.max(0, this.speedBoostTimer - delta);
     if (this.shieldTimer > 0) this.shieldTimer = Math.max(0, this.shieldTimer - delta);
+    if (this.dodgeTimer > 0) this.dodgeTimer = Math.max(0, this.dodgeTimer - delta);
     if (this.slowTimer > 0) this.slowTimer = Math.max(0, this.slowTimer - delta);
     if (this.throwAnimTimer > 0) this.throwAnimTimer = Math.max(0, this.throwAnimTimer - delta);
 
@@ -1463,7 +1817,7 @@ export class JumanjiGame {
       // Sync aim direction with WASD / Arrow / Joystick direction!
       this.aimDir.set(moveX, 0, moveZ).normalize();
 
-      const boost = (this.speedBoostTimer > 0 ? 1.4 : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
+      const boost = (this.speedBoostTimer > 0 ? 1.4 : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0) * (this.dodgeTimer > 0 ? 2.2 : 1.0);
       const speed = this.charData.stats.speed * (this.isSprinting ? 1.45 : 1.0) * boost;
 
       // Independent X & Z sliding collision so player never gets stuck!
@@ -1491,20 +1845,25 @@ export class JumanjiGame {
       this.aimReticle.position.z = this.playerMesh.position.z + this.aimDir.z * 3.5;
     }
 
-    // Gravity
-    if (!this.isGrounded || this.playerMesh.position.y > 0) {
+    // Ground & Temple Stairs Height
+    let groundH = 0;
+    if (this.currentLevel === 5) {
+      const pz = this.playerMesh.position.z, px = this.playerMesh.position.x;
+      if (pz < -38 && pz > -58 && Math.abs(px) < 14) {
+        groundH = Math.min(4.0, Math.abs(pz - (-38)) * 0.34);
+      }
+    }
+
+    if (!this.isGrounded) {
       this.verticalVelocity -= 26 * delta;
       this.playerMesh.position.y += this.verticalVelocity * delta;
-      let groundH = 0;
-      if (this.currentLevel === 5) {
-        const pz = this.playerMesh.position.z, px = this.playerMesh.position.x;
-        if (pz < -38 && pz > -58 && Math.abs(px) < 14) groundH = Math.min(4.5, Math.abs(pz - (-38)) * 0.32);
-      }
       if (this.playerMesh.position.y <= groundH) {
         this.playerMesh.position.y = groundH;
         this.verticalVelocity = 0;
         this.isGrounded = true;
       }
+    } else {
+      this.playerMesh.position.y = THREE.MathUtils.lerp(this.playerMesh.position.y, groundH, 14 * delta);
     }
 
     this.animateJoints(this.playerJoints, this.isMoving, this.walkCycle, this.throwAnimTimer > 0);
@@ -1512,11 +1871,17 @@ export class JumanjiGame {
 
   checkCollision(x, z, radius) {
     if (Math.abs(x) > 47 || z > 31 || z < -57) return true;
-    // Prevent walking on river water outside the bridge!
+    // Prevent walking on river water / lava outside the bridges!
     for (const w of this.waterZones) {
-      if (Math.abs(z - w.z) < w.halfDepth + radius && Math.abs(x) > w.bridgeHalfWidth - radius) {
-        return true;
+      if (Math.abs(z - w.z) < w.halfDepth + radius) {
+        const bridges = w.bridges || [0];
+        const onBridge = bridges.some(bx => Math.abs(x - bx) <= w.bridgeHalfWidth - radius);
+        if (!onBridge) return true;
       }
+    }
+    // Maze & Canyon Box Walls
+    for (const b of this.boxWalls) {
+      if (Math.abs(x - b.x) < b.hw + radius && Math.abs(z - b.z) < b.hd + radius) return true;
     }
     for (const obj of this.collisionObjects) {
       const dx = x - obj.x, dz = z - obj.z;
@@ -1564,14 +1929,14 @@ export class JumanjiGame {
         }
         e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
 
-        // Animal Ranged / Power Attack
+        // Character-Specific Animal Power Throw!
         e.throwCooldown -= delta;
         if (e.throwCooldown <= 0) {
-          e.throwCooldown = e.power === 'rapid' ? 1.3 : 2.2 + Math.random() * 0.8;
+          e.throwCooldown = e.power === 'rapid' ? 2.1 : 3.0 + Math.random() * 0.8;
           if (e.power === 'triple') {
-            [-0.22, 0, 0.22].forEach(a => this.spawnProjectile(ePos, dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a), 'enemy', e.color));
+            [-0.22, 0, 0.22].forEach(a => this.spawnProjectile(ePos, dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a), 'enemy', e.color, false, false, e.power));
           } else {
-            this.spawnProjectile(ePos, dir, 'enemy', e.color, e.power === 'pounce', e.power === 'frost');
+            this.spawnProjectile(ePos, dir, 'enemy', e.color, e.power === 'pounce', e.power === 'frost', e.power);
           }
         }
 
@@ -1627,7 +1992,7 @@ export class JumanjiGame {
         soundEngine.playSfx('bossRoar');
         if (dist < 10 && pPos.y < 1.0) {
           this.damagePlayer(24);
-          this.showNotification("Boss Shockwave! Jump [Space] to dodge!");
+          this.showNotification("Boss Shockwave! Press [C] to Dodge!");
         }
       }
     }
@@ -1654,6 +2019,21 @@ export class JumanjiGame {
           soundEngine.playSfx('trap');
           this.damagePlayer(20);
         }
+      }
+    });
+  }
+
+  updatePuzzles() {
+    const pPos = this.playerMesh.position;
+    this.pressurePads.forEach(pad => {
+      if (!pad.active && pPos.distanceTo(pad.mesh.position) < 1.8) {
+        pad.active = true;
+        pad.mesh.material.color.setHex(0x00ff88);
+        this.addScore(150);
+        soundEngine.playSfx('puzzleSolve');
+        if (this.onFloatingPopup) this.onFloatingPopup('+150 PAD!', '#00ff9d');
+        this.showNotification(`${pad.label} Activated!`);
+        this.evaluateLevelUnlock();
       }
     });
   }
@@ -1700,15 +2080,14 @@ export class JumanjiGame {
           this.levelItemsCollected++;
           this.addScore(150);
           soundEngine.playSfx('pickup');
-          this.questObjective = `${this.levelConfig.name}: (${this.levelItemsCollected}/${this.levelItemsRequired})`;
           this.showNotification(`${col.name} (${this.levelItemsCollected}/${this.levelItemsRequired})`);
-          if (this.levelItemsCollected >= this.levelItemsRequired) this.activateExitPortal();
+          this.evaluateLevelUnlock();
         } else if (col.type === 'key') {
           this.inventory.keys++;
           this.addScore(150);
           soundEngine.playSfx('pickup');
           this.showNotification(`Key Found! (${this.inventory.keys}/2)`);
-          if (this.gateUnlocked && this.inventory.keys >= 2) this.activateExitPortal();
+          this.evaluateLevelUnlock();
         } else if (col.type === 'berry') {
           this.inventory.berries++;
           soundEngine.playSfx('powerup');
@@ -1727,15 +2106,42 @@ export class JumanjiGame {
     }
   }
 
+  performDodge() {
+    if (this.dodgeTimer > 0 || this.stamina < 28) return;
+    this.stamina -= 28;
+    this.dodgeTimer = 0.35;
+    soundEngine.playSfx('dodge');
+    this.spawnShockwave(this.playerMesh.position, 0x38bdf8, 3.8);
+  }
+
   checkInteractions() {
     const pPos = this.playerMesh.position;
     this.activeInteractable = null;
     let hintLabel = null;
 
+    this.secretChests.forEach(c => {
+      if (!c.opened && pPos.distanceTo(c.group.position) < 2.8) {
+        this.activeInteractable = { type: 'chest', entity: c };
+        hintLabel = 'Open Secret Treasure';
+      }
+    });
+
     if (this.nigelMesh && pPos.distanceTo(this.nigelMesh.position) < 3.4) {
       this.activeInteractable = { type: 'nigel' };
       hintLabel = 'Speak with Nigel Billingsley';
     }
+    this.levers.forEach(l => {
+      if (!l.pulled && pPos.distanceTo(l.group.position) < 2.8) {
+        this.activeInteractable = { type: 'lever', entity: l };
+        hintLabel = `Activate ${l.label}`;
+      }
+    });
+    this.sequencePedestals.forEach(sp => {
+      if (!sp.solved && pPos.distanceTo(sp.group.position) < 2.8) {
+        this.activeInteractable = { type: 'sequence', entity: sp };
+        hintLabel = `Activate ${sp.label}`;
+      }
+    });
     this.runePillarMeshes.forEach(pMesh => {
       if (pPos.distanceTo(pMesh.group.position) < 2.8) {
         this.activeInteractable = { type: 'pillar', entity: pMesh };
@@ -1760,7 +2166,7 @@ export class JumanjiGame {
   }
 
   damagePlayer(dmg) {
-    if (this.shieldTimer > 0) return;
+    if (this.shieldTimer > 0 || this.dodgeTimer > 0) return;
     soundEngine.playSfx('hit');
     this.cameraShake = Math.max(this.cameraShake, 0.4);
     if (this.onDamageFlash) this.onDamageFlash();
@@ -1803,6 +2209,10 @@ export class JumanjiGame {
         this.combo = 1;
         if (this.onComboChange) this.onComboChange(this.combo);
       }
+    }
+    if (this.atmosphericParticles) {
+      this.atmosphericParticles.position.y = Math.sin(this.animTime * 0.9) * 0.35;
+      this.atmosphericParticles.rotation.y += 0.035 * delta;
     }
     if (this.falconJewel) this.falconJewel.rotation.y += 1.2 * delta;
     if (this.exitPortal && this.exitPortal.active) this.exitPortal.vortex.rotation.z += 2.0 * delta;
